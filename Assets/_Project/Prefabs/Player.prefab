@@ -51,9 +51,9 @@ MonoBehaviour:
   _agent: {fileID: 663919095786236514}
   _raycastMask:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 4294967295
   _maxRaycastDistance: 1000
-  _navAreaMask: -2
+  _navAreaMask: -1
 --- !u!136 &6876213424168886528
 CapsuleCollider:
   m_ObjectHideFlags: 0

@@ -7,37 +7,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private NavMeshAgent _agent;
 
     [SerializeField] private LayerMask _raycastMask = ~0;
-    [SerializeField] private float _maxRaycastDistance = 10f;
+    [SerializeField] private float _maxRaycastDistance = 1000f;
     [SerializeField] private int _navAreaMask = NavMesh.AllAreas;
-
-    private Camera _mainCamera;
-
-    private void Start()
-    {
-        if (_mainCamera == null)
-        {
-            _mainCamera = Camera.main;
-        }
-
-        if (_agent != null && !_agent.isOnNavMesh)
-        {
-            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, NavMesh.AllAreas))
-            {
-                _agent.Warp(hit.position);
-            }
-            else
-            {
-                Debug.LogWarning("PlayerController: nessuna NavMesh vicina alla posizione iniziale.");
-            }
-        }
-
-        _navAreaMask = NavMesh.AllAreas;
-    }
 
     private void Awake()
     {
-        _mainCamera = Camera.main;
-
         if (_agent == null)
         {
             _agent = GetComponent<NavMeshAgent>();
@@ -50,6 +24,21 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        if (_agent != null && !_agent.isOnNavMesh)
+        {
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+            {
+                _agent.Warp(hit.position);
+            }
+            else
+            {
+                Debug.LogWarning("PlayerController: nessuna NavMesh vicina alla posizione iniziale.");
+            }
+        }
+    }
+
     private void Update()
     {
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -59,6 +48,8 @@ public class PlayerController : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
+
+            Debug.Log("Click ricevuto");
             if (TryGetNavPointFromMouse(out Vector3 target))
             {
                 _agent.isStopped = false;
@@ -71,34 +62,40 @@ public class PlayerController : MonoBehaviour
     {
         navPoint = default;
 
-        if (_mainCamera == null)
+        Camera cam = Camera.main;
+        if (cam == null)
         {
+            Debug.LogWarning("Camera.main è null");
             return false;
         }
 
-        Ray ray = _mainCamera.ScreenPointToRay(Input.mousePosition);
+        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
 
-        if (Physics.Raycast(ray, out RaycastHit hit, _maxRaycastDistance, _raycastMask))
+        if (Physics.Raycast(ray, out RaycastHit hit, _maxRaycastDistance, ~0, QueryTriggerInteraction.Ignore))
         {
-            if (NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, _maxRaycastDistance, _navAreaMask))
+            if (NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, 2f, _navAreaMask))
             {
                 navPoint = navHit.position;
                 return true;
             }
         }
+        else
+        {
+            Debug.Log("Raycast non ha colpito nulla (passo al fallback piano)");
+        }
 
-        Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+        const float groundY = 0f;
+        Plane groundPlane = new Plane(Vector3.up, new Vector3(0f, groundY, 0f));
         if (groundPlane.Raycast(ray, out float enter))
         {
-            Vector3 planePoint = ray.GetPoint(enter);
-            if (NavMesh.SamplePosition(planePoint, out NavMeshHit navHit, _maxRaycastDistance, _navAreaMask))
+            Vector3 p = ray.GetPoint(enter);
+            if (NavMesh.SamplePosition(p, out NavMeshHit navHit2, 2f, _navAreaMask))
             {
-                navPoint = navHit.position;
+                navPoint = navHit2.position;
                 return true;
             }
         }
 
         return false;
     }
-
 }
