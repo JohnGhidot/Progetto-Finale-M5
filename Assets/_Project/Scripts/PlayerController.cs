@@ -49,7 +49,7 @@ public class PlayerController : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
 
-            Debug.Log("Click ricevuto");
+            //Debug.Log("Click ricevuto");
             if (TryGetNavPointFromMouse(out Vector3 target))
             {
                 _agent.isStopped = false;

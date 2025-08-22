@@ -12,6 +12,7 @@ public class DoorController : MonoBehaviour
     private bool _isMoving = false;
     private NavMeshObstacle _navMeshObstacle;
     private Transform _player;
+    private bool _ownsPrompt = false;
 
     private void Start()
     {
@@ -39,7 +40,11 @@ public class DoorController : MonoBehaviour
 
         if (!_isMoving && inRange)
         {
-            UIManager.Instance?.ShowInteractionPrompt(true, "Press \"E\" to open");
+            if (!_ownsPrompt)
+            {
+                UIManager.Instance?.ShowInteractionPrompt(true, "Press \"E\" to open");
+                _ownsPrompt = true;
+            }
 
             if (Input.GetKeyDown(KeyCode.E))
             {
@@ -48,8 +53,13 @@ public class DoorController : MonoBehaviour
         }
         else
         {
-            UIManager.Instance?.ShowInteractionPrompt(false);
-        }        
+
+            if (_ownsPrompt)
+            {
+                UIManager.Instance?.ShowInteractionPrompt(false);
+                _ownsPrompt = false;
+            }
+        }
     }
 
     private IEnumerator OpenAndCloseDoor()
@@ -84,4 +94,11 @@ public class DoorController : MonoBehaviour
         }
         _isMoving = false;
     }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, _interactionDistance);
+    }
+
 }
