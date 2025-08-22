@@ -11,6 +11,7 @@ public class DoorController : MonoBehaviour
     private Quaternion _initialRotation;
     private bool _isMoving = false;
     private NavMeshObstacle _navMeshObstacle;
+    private Transform _player;
 
     private void Start()
     {
@@ -18,23 +19,37 @@ public class DoorController : MonoBehaviour
         _navMeshObstacle = _doorToOpen.GetComponent<NavMeshObstacle>();
     }
 
-    private void OnMouseDown()
+    private void Update()
     {
-        GameObject playerObject = GameObject.FindWithTag("Player");
-
-        if (playerObject != null)
+        if (_player == null)
         {
-            Transform player = playerObject.transform;
+            GameObject playerObject = GameObject.FindWithTag("Player");
+            if (playerObject != null)
+            {
+                _player = playerObject.transform;
+            }
+            else
+            {
+                return;
+            }
+        }
 
-            if (!_isMoving && Vector3.Distance(transform.position, player.position) <= _interactionDistance)
+        float distanceToPlayer = Vector3.Distance(transform.position, _player.position);
+        bool inRange = distanceToPlayer <= _interactionDistance;
+
+        if (!_isMoving && inRange)
+        {
+            UIManager.Instance?.ShowInteractionPrompt(true, "Press \"E\" to open");
+
+            if (Input.GetKeyDown(KeyCode.E))
             {
                 StartCoroutine(OpenAndCloseDoor());
             }
         }
         else
         {
-            Debug.LogError("Oggetto Player non trovato. Assicurati che il tuo Player abbia il tag 'Player'.");
-        }
+            UIManager.Instance?.ShowInteractionPrompt(false);
+        }        
     }
 
     private IEnumerator OpenAndCloseDoor()
