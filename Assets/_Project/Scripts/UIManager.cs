@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance;
+    [SerializeField] private GameObject _victoryPanel;    
 
     [SerializeField] private TMP_Text _interactionText;
 
@@ -26,6 +27,21 @@ public class UIManager : MonoBehaviour
         {
             _interactionText.gameObject.SetActive(false);
         }
+    }    
+
+    public void ShowVictory()
+    {
+        if (_victoryPanel != null)
+        {
+            _victoryPanel.SetActive(true);
+        }
+
+        if (_interactionText != null && _interactionText.gameObject.activeSelf == true)
+        {
+            _interactionText.gameObject.SetActive(false);
+        }
+
+        Time.timeScale = 0f;
     }
 
     public void ShowInteractionPrompt(bool show, string message = null)
@@ -54,7 +70,7 @@ public class UIManager : MonoBehaviour
             {
                 _interactionText.gameObject.SetActive(false);
             }
-        }        
+        }
     }
 
     public void OnStartPressed()

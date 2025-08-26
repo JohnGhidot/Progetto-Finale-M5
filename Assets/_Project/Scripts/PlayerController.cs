@@ -41,6 +41,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             return;
@@ -56,6 +57,12 @@ public class PlayerController : MonoBehaviour
                 _agent.SetDestination(target);
             }
         }
+
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            UIManager.Instance.ShowVictory();
+        }
+
     }
 
     private bool TryGetNavPointFromMouse(out Vector3 navPoint)
