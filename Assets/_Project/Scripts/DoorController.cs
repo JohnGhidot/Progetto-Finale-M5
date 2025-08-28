@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using UnityEngine.AI;
+using Unity.AI.Navigation;
 
 public class DoorController : MonoBehaviour
 {
@@ -8,16 +9,39 @@ public class DoorController : MonoBehaviour
     [SerializeField] private float _interactionDistance = 2f;
     [SerializeField] private float _rotationSpeed = 90f;
     [SerializeField] private float _openAngle = -90f;
+
     private Quaternion _initialRotation;
     private bool _isMoving = false;
     private NavMeshObstacle _navMeshObstacle;
     private Transform _player;
     private bool _ownsPrompt = false;
 
+    [SerializeField] private NavMeshSurface _navMeshSurface;
+
+
     private void Start()
     {
         _initialRotation = _doorToOpen.transform.rotation;
         _navMeshObstacle = _doorToOpen.GetComponent<NavMeshObstacle>();
+
+        if (_navMeshSurface == null)
+        {
+            GameObject navMesh = GameObject.Find("NavMesh");
+            if ( navMesh != null)
+            {
+                _navMeshSurface = navMesh.GetComponent<NavMeshSurface>();
+            }
+
+            if (_navMeshSurface == null)
+            {
+                _navMeshSurface = FindObjectOfType<NavMeshSurface>();
+            }
+
+            if (_navMeshSurface == null)
+            {
+                Debug.LogWarning("[DoorController] NavMeshSurface non assegnato in Inspector e non trovato in scena.");
+            }
+        }
     }
 
     private void Update()
@@ -69,6 +93,13 @@ public class DoorController : MonoBehaviour
         {
             _navMeshObstacle.enabled = false;
         }
+
+        if (_navMeshSurface != null)
+        {
+            _navMeshSurface.BuildNavMesh();
+        }
+
+
         Quaternion targetRotation = Quaternion.Euler(_initialRotation.eulerAngles.x, _initialRotation.eulerAngles.y + _openAngle, _initialRotation.eulerAngles.z);
 
         while (Quaternion.Angle(_doorToOpen.transform.rotation, targetRotation) > 0.01f)
@@ -88,10 +119,17 @@ public class DoorController : MonoBehaviour
         }
 
         _doorToOpen.transform.rotation = targetRotation;
+
         if (_navMeshObstacle != null)
         {
             _navMeshObstacle.enabled = true;
         }
+
+        if (_navMeshSurface != null)
+        {
+            _navMeshSurface.BuildNavMesh();
+        }
+
         _isMoving = false;
     }
 
