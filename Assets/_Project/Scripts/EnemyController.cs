@@ -18,15 +18,17 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private NavMeshAgent _agent;
     [SerializeField] private Transform _eyes;
 
-    [Header ("Vision")]
+    [Header("Vision")]
     [SerializeField] private float _viewDistance = 10f;
     [SerializeField] private float _viewAngle = 90f;
 
     [Header("Sentry Settings")]
     [SerializeField] private float _sentryIdleTime = 2f;
     [SerializeField] private float _idleTurnDegree = 45f;
+    [SerializeField] private float _rotationSpeed = 3f;
     private float _idleTimer = 0f;
     private Quaternion _homeRotation;
+    private Quaternion _targetRotation;
     private Vector3 _spawnPosition;
 
     [Header("Patroller Settings")]
@@ -39,21 +41,21 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float _lostSightTime = 1f;
     [SerializeField] private float _searchTime = 3f;
     [SerializeField] private float _repathInterval = 0.5f;
+    [SerializeField] private float _searchRotationSpeed = 3f;
 
     private float _lostSightTimer = 0f;
     private float _searchTimer = 0f;
     private float _repathTimer = 0f;
 
     private Vector3 _lastKnownPlayerPosition;
-
+    private Quaternion _searchTargetRotation;
 
     private void Awake()
     {
         _spawnPosition = transform.position;
         _homeRotation = transform.rotation;
-
+        _targetRotation = _homeRotation;
         _state = _enemyState;
-
         if (_enemyKind == EnemyKind.Sentry)
         {
             _state = EnemyState.Idle;
@@ -63,7 +65,10 @@ public class EnemyController : MonoBehaviour
             if (_patrolPoints != null && _patrolPoints.Length > 0)
             {
                 _state = EnemyState.Patrol;
-                _agent.SetDestination(_patrolPoints[_patrolIndex].position);
+                if (_agent != null)
+                {
+                    _agent.SetDestination(_patrolPoints[_patrolIndex].position);
+                }
             }
             else
             {
@@ -74,13 +79,13 @@ public class EnemyController : MonoBehaviour
 
     private void Update()
     {
+        FindPlayerIfNeeded();
         bool seePlayer = CanSeePlayer();
-
+        Debug.Log("Nemico " + gameObject.name + " vede il player: " + seePlayer);
         if (seePlayer == true)
         {
             _lastKnownPlayerPosition = _player.position;
-            _lostSightTime = 0f;
-
+            _lostSightTimer = 0f;
             if (_state != EnemyState.Chase)
             {
                 ChangeState(EnemyState.Chase);
@@ -88,72 +93,73 @@ public class EnemyController : MonoBehaviour
         }
         else
         {
-            _lostSightTime += Time.deltaTime;
+            _lostSightTimer += Time.deltaTime;
         }
-
         switch (_state)
         {
             case EnemyState.Idle:
-            {
-                 StateIdle();
-                 break;
-            }
+                {
+                    StateIdle();
+                    break;
+                }
             case EnemyState.Patrol:
-            {
-                StatePatrol();
-                break;
-            }
+                {
+                    StatePatrol();
+                    break;
+                }
             case EnemyState.Chase:
-            {
-                StateChase();
-                break;
-            }
+                {
+                    StateChase();
+                    break;
+                }
             case EnemyState.Search:
-            {
-                StateSearch();
-                break;
-            }
+                {
+                    StateSearch();
+                    break;
+                }
             case EnemyState.Return:
-            {
-                StateReturn();
-                break;
-            }
+                {
+                    StateReturn();
+                    break;
+                }
         }
     }
 
     private void StateIdle()
     {
-        _agent.isStopped = true;
-
+        if (_agent != null)
+        {
+            _agent.isStopped = true;
+        }
         if (_enemyKind == EnemyKind.Sentry)
         {
+            float t = 1f - Mathf.Exp(-_rotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, _targetRotation, t);
             _idleTimer += Time.deltaTime;
-
-            if (_idleTimer >= _sentryIdleTime)
+            if (_idleTimer >= _sentryIdleTime && Quaternion.Angle(transform.rotation, _targetRotation) < 1f)
             {
                 _idleTimer = 0f;
-
-                Vector3 euler = transform.eulerAngles;
+                Vector3 euler = _targetRotation.eulerAngles;
                 euler.y += _idleTurnDegree;
-                Quaternion newRot = Quaternion.Euler(euler);
+                _targetRotation = Quaternion.Euler(euler);
             }
         }
     }
 
     private void StatePatrol()
     {
-        _agent.isStopped = false;
-
+        if (_agent != null)
+        {
+            _agent.isStopped = false;
+        }
         if (_patrolPoints == null || _patrolPoints.Length == 0)
         {
             ChangeState(EnemyState.Idle);
             return;
         }
-
         if (_agent.pathPending == false && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f)
         {
             _patrolTimer += Time.deltaTime;
-
             if (_patrolTimer >= _patrolIdleTime)
             {
                 _patrolTimer = 0f;
@@ -165,15 +171,16 @@ public class EnemyController : MonoBehaviour
 
     private void StateChase()
     {
-        _agent.isStopped = false;
-
+        if (_agent != null)
+        {
+            _agent.isStopped = false;
+        }
         _repathTimer += Time.deltaTime;
         if (_repathTimer >= _repathInterval)
         {
             _repathTimer = 0f;
             _agent.SetDestination(_lastKnownPlayerPosition);
         }
-
         if (_lostSightTimer >= _lostSightTime)
         {
             ChangeState(EnemyState.Search);
@@ -182,16 +189,21 @@ public class EnemyController : MonoBehaviour
 
     private void StateSearch()
     {
-        _agent.isStopped = false;
-
+        if (_agent != null)
+        {
+            _agent.isStopped = false;
+        }
         if (_agent.pathPending == false && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f)
         {
-            _searchTimer = Time.deltaTime;
-
-            Vector3 euler = transform.eulerAngles;
-            euler.y *= 90f * Time.deltaTime;
-            transform.rotation = Quaternion.Euler(euler);
-
+            _searchTimer += Time.deltaTime;
+            float t = 1f - Mathf.Exp(-_searchRotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, _searchTargetRotation, t);
+            if (Quaternion.Angle(transform.rotation, _searchTargetRotation) < 1f)
+            {
+                Vector3 euler = _searchTargetRotation.eulerAngles;
+                euler.y += 90f;
+                _searchTargetRotation = Quaternion.Euler(euler);
+            }
             if (_searchTimer >= _searchTime)
             {
                 _searchTimer = 0f;
@@ -202,15 +214,17 @@ public class EnemyController : MonoBehaviour
 
     private void StateReturn()
     {
-        _agent.isStopped = false;
-
+        if (_agent != null)
+        {
+            _agent.isStopped = false;
+        }
         if (_enemyKind == EnemyKind.Sentry)
         {
             _agent.SetDestination(_spawnPosition);
-
             if (_agent.pathPending == false && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f)
             {
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, _homeRotation, 360f * Time.deltaTime);
+                float t = 1f - Mathf.Exp(-_rotationSpeed * Time.deltaTime);
+                transform.rotation = Quaternion.Slerp(transform.rotation, _homeRotation, t);
                 if (Quaternion.Angle(transform.rotation, _homeRotation) <= 1f)
                 {
                     ChangeState(EnemyState.Idle);
@@ -223,8 +237,7 @@ public class EnemyController : MonoBehaviour
             {
                 int closest = 0;
                 float best = float.MaxValue;
-
-                for (int i = 0, i < _patrolPoints.Length; i * *)
+                for (int i = 0; i < _patrolPoints.Length; i++)
                 {
                     float dist = Vector3.SqrMagnitude(transform.position - _patrolPoints[i].position);
                     if (dist < best)
@@ -233,7 +246,6 @@ public class EnemyController : MonoBehaviour
                         closest = i;
                     }
                 }
-
                 _patrolIndex = closest;
                 _agent.SetDestination(_patrolPoints[_patrolIndex].position);
                 ChangeState(EnemyState.Patrol);
@@ -248,7 +260,10 @@ public class EnemyController : MonoBehaviour
     private void ChangeState(EnemyState next)
     {
         _state = next;
-
+        if (_state == EnemyState.Search)
+        {
+            _searchTargetRotation = transform.rotation;
+        }
         if (_state != EnemyState.Search)
         {
             _searchTimer = 0f;
@@ -265,40 +280,40 @@ public class EnemyController : MonoBehaviour
         {
             return false;
         }
-
         Vector3 toPlayer = _player.position - _eyes.position;
         float dist = toPlayer.magnitude;
         if (dist > _viewDistance)
         {
             return false;
         }
-
         Vector3 dirToPlayer = toPlayer.normalized;
         float angle = Vector3.Angle(_eyes.forward, dirToPlayer);
         if (angle > _viewAngle * 0.5f)
         {
             return false;
         }
-
         if (Physics.Raycast(_eyes.position, dirToPlayer, out RaycastHit hit, dist, ~0, QueryTriggerInteraction.Ignore))
         {
-            Transform hitRoot = hit.transform.root;
-            if (hitRoot != _player)
+            Transform root = hit.collider.transform.root;
+            if (root.CompareTag("Player") == false)
             {
                 return false;
             }
         }
-
+        else
+        {
+            return false;
+        }
         return true;
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
+        if (other.CompareTag("Player") == true)
         {
-            if (UIManager.Instance != null)
+            if (GameManager.Instance != null)
             {
-                UIManager.Instance.Respawn();
+                GameManager.Instance.Respawn();
             }
         }
     }
@@ -309,15 +324,24 @@ public class EnemyController : MonoBehaviour
         {
             return;
         }
-
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(_eyes.position, _viewDistance);
-
         Vector3 left = Quaternion.Euler(0f, -_viewAngle * 0.5f, 0f) * _eyes.forward;
         Vector3 right = Quaternion.Euler(0f, _viewAngle * 0.5f, 0f) * _eyes.forward;
-
         Gizmos.color = Color.cyan;
         Gizmos.DrawLine(_eyes.position, _eyes.position + left * _viewDistance);
         Gizmos.DrawLine(_eyes.position, _eyes.position + right * _viewDistance);
+    }
+
+    private void FindPlayerIfNeeded()
+    {
+        if (_player == null)
+        {
+            GameObject p = GameObject.FindWithTag("Player");
+            if (p != null)
+            {
+                _player = p.transform;
+            }
+        }
     }
 }
