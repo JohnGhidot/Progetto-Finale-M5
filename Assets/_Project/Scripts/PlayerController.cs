@@ -63,6 +63,11 @@ public class PlayerController : MonoBehaviour
             UIManager.Instance.ShowVictory();
         }
 
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            GameManager.Instance.Respawn();
+        }
+
     }
 
     private bool TryGetNavPointFromMouse(out Vector3 navPoint)
