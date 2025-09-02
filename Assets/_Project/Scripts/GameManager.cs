@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -45,8 +46,8 @@ public class GameManager : MonoBehaviour
 
     public void Respawn()
     {
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null)
+        GameObject playerObj = FindPlayerRoot();
+        if (playerObj == null)
         {
             Debug.LogWarning("[GameManager] Respawn tentato, ma Player non trovato (v. tag).");
             return;
@@ -59,7 +60,8 @@ public class GameManager : MonoBehaviour
         }
 
         NavMeshAgent agent = playerObj.GetComponent<NavMeshAgent>();
-        if (agent != null)
+
+        if (agent != null && agent.isOnNavMesh == true)
         {
             bool warped = agent.Warp(_respawnPoint.position);
             if (warped == false)
@@ -67,12 +69,31 @@ public class GameManager : MonoBehaviour
                 playerObj.transform.position = _respawnPoint.position;
             }
 
+            playerObj.transform.rotation = _respawnPoint.rotation;
             agent.ResetPath();
         }
         else
         {
-            playerObj.transform.position = _respawnPoint.position;
+            playerObj.transform.SetPositionAndRotation(_respawnPoint.position, _respawnPoint.rotation);
         }
+    }
+
+    private GameObject FindPlayerRoot()
+    {
+        PlayerController pc = FindObjectOfType<PlayerController>();
+        if (pc != null)
+        {
+            return pc.gameObject;
+        }
+
+        GameObject tagged = GameObject.FindWithTag("Player");
+        if (tagged != null)
+        {
+            return tagged.transform.root.gameObject;
+        }
+
+        return null;
+
     }
 
 

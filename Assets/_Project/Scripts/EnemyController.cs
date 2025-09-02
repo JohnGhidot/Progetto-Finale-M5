@@ -20,7 +20,7 @@ public class EnemyController : MonoBehaviour
 
     [Header("Vision")]
     [SerializeField] private float _viewDistance = 10f;
-    [SerializeField] private float _viewAngle = 90f;
+    [SerializeField] private float _viewAngle = 75f;
 
     [Header("Sentry Settings")]
     [SerializeField] private float _sentryIdleTime = 2f;
@@ -50,12 +50,27 @@ public class EnemyController : MonoBehaviour
     private Vector3 _lastKnownPlayerPosition;
     private Quaternion _searchTargetRotation;
 
+    [Header("Hit Settings (Shared)")]
+    [Tooltip("Distanza a cui considerare il Player 'preso'.")]
+    [SerializeField] private float _hitDistance = 0.3f;
+
     private void Awake()
     {
         _spawnPosition = transform.position;
         _homeRotation = transform.rotation;
         _targetRotation = _homeRotation;
         _state = _enemyState;
+
+        if (_agent == null)
+        {
+            _agent = GetComponent<NavMeshAgent>();
+        }
+
+        if (_agent != null)
+        {
+            _agent.stoppingDistance = 0f;
+        }
+
         if (_enemyKind == EnemyKind.Sentry)
         {
             _state = EnemyState.Idle;
@@ -65,6 +80,7 @@ public class EnemyController : MonoBehaviour
             if (_patrolPoints != null && _patrolPoints.Length > 0)
             {
                 _state = EnemyState.Patrol;
+
                 if (_agent != null)
                 {
                     _agent.SetDestination(_patrolPoints[_patrolIndex].position);
@@ -77,15 +93,22 @@ public class EnemyController : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        FindPlayerIfNeeded();
+    }
+
     private void Update()
     {
         FindPlayerIfNeeded();
+
         bool seePlayer = CanSeePlayer();
-        Debug.Log("Nemico " + gameObject.name + " vede il player: " + seePlayer);
+
         if (seePlayer == true)
         {
             _lastKnownPlayerPosition = _player.position;
             _lostSightTimer = 0f;
+
             if (_state != EnemyState.Chase)
             {
                 ChangeState(EnemyState.Chase);
@@ -95,6 +118,7 @@ public class EnemyController : MonoBehaviour
         {
             _lostSightTimer += Time.deltaTime;
         }
+
         switch (_state)
         {
             case EnemyState.Idle:
@@ -131,10 +155,12 @@ public class EnemyController : MonoBehaviour
         {
             _agent.isStopped = true;
         }
+
         if (_enemyKind == EnemyKind.Sentry)
         {
             float t = 1f - Mathf.Exp(-_rotationSpeed * Time.deltaTime);
             transform.rotation = Quaternion.Slerp(transform.rotation, _targetRotation, t);
+
             _idleTimer += Time.deltaTime;
             if (_idleTimer >= _sentryIdleTime && Quaternion.Angle(transform.rotation, _targetRotation) < 1f)
             {
@@ -152,14 +178,17 @@ public class EnemyController : MonoBehaviour
         {
             _agent.isStopped = false;
         }
+
         if (_patrolPoints == null || _patrolPoints.Length == 0)
         {
             ChangeState(EnemyState.Idle);
             return;
         }
+
         if (_agent.pathPending == false && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f)
         {
             _patrolTimer += Time.deltaTime;
+
             if (_patrolTimer >= _patrolIdleTime)
             {
                 _patrolTimer = 0f;
@@ -175,12 +204,35 @@ public class EnemyController : MonoBehaviour
         {
             _agent.isStopped = false;
         }
+
+        if (_player != null)
+        {
+            Vector3 a = transform.position;
+            Vector3 b = _player.position;
+            a.y = 0f;
+            b.y = 0f;
+
+            Vector3 diff = a - b;
+            float sqr = diff.sqrMagnitude;
+            float hitSqr = _hitDistance * _hitDistance;
+
+            if (sqr <= hitSqr)
+            {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.Respawn();
+                }
+                return;
+            }
+        }
+
         _repathTimer += Time.deltaTime;
         if (_repathTimer >= _repathInterval)
         {
             _repathTimer = 0f;
             _agent.SetDestination(_lastKnownPlayerPosition);
         }
+
         if (_lostSightTimer >= _lostSightTime)
         {
             ChangeState(EnemyState.Search);
@@ -193,17 +245,21 @@ public class EnemyController : MonoBehaviour
         {
             _agent.isStopped = false;
         }
+
         if (_agent.pathPending == false && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f)
         {
             _searchTimer += Time.deltaTime;
+
             float t = 1f - Mathf.Exp(-_searchRotationSpeed * Time.deltaTime);
             transform.rotation = Quaternion.Slerp(transform.rotation, _searchTargetRotation, t);
+
             if (Quaternion.Angle(transform.rotation, _searchTargetRotation) < 1f)
             {
                 Vector3 euler = _searchTargetRotation.eulerAngles;
                 euler.y += 90f;
                 _searchTargetRotation = Quaternion.Euler(euler);
             }
+
             if (_searchTimer >= _searchTime)
             {
                 _searchTimer = 0f;
@@ -218,13 +274,16 @@ public class EnemyController : MonoBehaviour
         {
             _agent.isStopped = false;
         }
+
         if (_enemyKind == EnemyKind.Sentry)
         {
             _agent.SetDestination(_spawnPosition);
+
             if (_agent.pathPending == false && _agent.remainingDistance <= _agent.stoppingDistance + 0.1f)
             {
                 float t = 1f - Mathf.Exp(-_rotationSpeed * Time.deltaTime);
                 transform.rotation = Quaternion.Slerp(transform.rotation, _homeRotation, t);
+
                 if (Quaternion.Angle(transform.rotation, _homeRotation) <= 1f)
                 {
                     ChangeState(EnemyState.Idle);
@@ -237,6 +296,7 @@ public class EnemyController : MonoBehaviour
             {
                 int closest = 0;
                 float best = float.MaxValue;
+
                 for (int i = 0; i < _patrolPoints.Length; i++)
                 {
                     float dist = Vector3.SqrMagnitude(transform.position - _patrolPoints[i].position);
@@ -246,6 +306,7 @@ public class EnemyController : MonoBehaviour
                         closest = i;
                     }
                 }
+
                 _patrolIndex = closest;
                 _agent.SetDestination(_patrolPoints[_patrolIndex].position);
                 ChangeState(EnemyState.Patrol);
@@ -260,14 +321,17 @@ public class EnemyController : MonoBehaviour
     private void ChangeState(EnemyState next)
     {
         _state = next;
+
         if (_state == EnemyState.Search)
         {
             _searchTargetRotation = transform.rotation;
         }
+
         if (_state != EnemyState.Search)
         {
             _searchTimer = 0f;
         }
+
         if (_state != EnemyState.Chase)
         {
             _repathTimer = 0f;
@@ -276,26 +340,38 @@ public class EnemyController : MonoBehaviour
 
     private bool CanSeePlayer()
     {
-        if (_player == null || _eyes == null)
+        if (_player == null)
         {
             return false;
         }
-        Vector3 toPlayer = _player.position - _eyes.position;
+
+        Transform eyes = (_eyes != null) ? _eyes : transform;
+
+        Vector3 targetPos = _player.position + Vector3.up * 1.0f;
+        Vector3 toPlayer = targetPos - eyes.position;
+
         float dist = toPlayer.magnitude;
         if (dist > _viewDistance)
         {
             return false;
         }
+
         Vector3 dirToPlayer = toPlayer.normalized;
-        float angle = Vector3.Angle(_eyes.forward, dirToPlayer);
+        float angle = Vector3.Angle(eyes.forward, dirToPlayer);
         if (angle > _viewAngle * 0.5f)
         {
             return false;
         }
-        if (Physics.Raycast(_eyes.position, dirToPlayer, out RaycastHit hit, dist, ~0, QueryTriggerInteraction.Ignore))
+
+        if (Physics.Raycast(eyes.position, dirToPlayer, out RaycastHit hit, dist, ~0, QueryTriggerInteraction.Ignore))
         {
-            Transform root = hit.collider.transform.root;
-            if (root.CompareTag("Player") == false)
+            Transform hitRoot = (hit.rigidbody != null) ? hit.rigidbody.transform : hit.transform.root;
+
+            if (hitRoot == _player.root)
+            {
+                return true;
+            }
+            else
             {
                 return false;
             }
@@ -304,12 +380,16 @@ public class EnemyController : MonoBehaviour
         {
             return false;
         }
-        return true;
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player") == true)
+        Transform root = (other.attachedRigidbody != null) ? other.attachedRigidbody.transform : other.transform.root;
+
+        bool isPlayerByComponent = (root.GetComponent<PlayerController>() != null);
+        bool isPlayerByTag = root.CompareTag("Player");
+
+        if (isPlayerByComponent == true || isPlayerByTag == true)
         {
             if (GameManager.Instance != null)
             {
@@ -318,30 +398,51 @@ public class EnemyController : MonoBehaviour
         }
     }
 
-    private void OnDrawGizmosSelected()
-    {
-        if (_eyes == null)
-        {
-            return;
-        }
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(_eyes.position, _viewDistance);
-        Vector3 left = Quaternion.Euler(0f, -_viewAngle * 0.5f, 0f) * _eyes.forward;
-        Vector3 right = Quaternion.Euler(0f, _viewAngle * 0.5f, 0f) * _eyes.forward;
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(_eyes.position, _eyes.position + left * _viewDistance);
-        Gizmos.DrawLine(_eyes.position, _eyes.position + right * _viewDistance);
-    }
-
     private void FindPlayerIfNeeded()
     {
-        if (_player == null)
+        if (_player != null)
         {
-            GameObject p = GameObject.FindWithTag("Player");
-            if (p != null)
+            if (_player.GetComponent<PlayerController>() == null && _player.root.GetComponent<PlayerController>() == null)
             {
-                _player = p.transform;
+                _player = null;
+            }
+            else
+            {
+                return;
             }
         }
+
+        PlayerController pc = FindObjectOfType<PlayerController>();
+        if (pc != null)
+        {
+            _player = pc.transform;
+            return;
+        }
+
+        GameObject tagged = GameObject.FindWithTag("Player");
+        if (tagged != null)
+        {
+            Transform root = tagged.transform.root;
+            if (root.GetComponent<PlayerController>() != null)
+            {
+                _player = root;
+                return;
+            }
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Transform eyes = (_eyes != null) ? _eyes : transform;
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(eyes.position, _viewDistance);
+
+        Vector3 left = Quaternion.Euler(0f, -_viewAngle * 0.5f, 0f) * eyes.forward;
+        Vector3 right = Quaternion.Euler(0f, _viewAngle * 0.5f, 0f) * eyes.forward;
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(eyes.position, eyes.position + left * _viewDistance);
+        Gizmos.DrawLine(eyes.position, eyes.position + right * _viewDistance);
     }
 }

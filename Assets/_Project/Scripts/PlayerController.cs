@@ -65,7 +65,10 @@ public class PlayerController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.R))
         {
-            GameManager.Instance.Respawn();
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.Respawn();
+            }
         }
 
     }
@@ -107,7 +110,20 @@ public class PlayerController : MonoBehaviour
                 return true;
             }
         }
-
         return false;
     }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        EnemyController enemy = other.GetComponentInParent<EnemyController>();
+        if (enemy != null)
+        {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.Respawn();
+            }
+        }
+    }
+
+
 }
