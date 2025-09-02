@@ -63,13 +63,13 @@ public class PlayerController : MonoBehaviour
             UIManager.Instance.ShowVictory();
         }
 
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.Respawn();
-            }
-        }
+        //if (Input.GetKeyDown(KeyCode.R))
+        //{
+        //    if (GameManager.Instance != null)
+        //    {
+        //        GameManager.Instance.Respawn();
+        //    }
+        //}
 
     }
 
@@ -124,6 +124,4 @@ public class PlayerController : MonoBehaviour
             }
         }
     }
-
-
 }
