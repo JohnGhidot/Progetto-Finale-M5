@@ -61,8 +61,8 @@ MonoBehaviour:
   _rotationSpeed: 5
   _patrolPoints: []
   _patrolIdleTime: 0.5
-  _lostSightTime: 1.5
-  _searchTime: 3
+  _lostSightTime: 1
+  _searchTime: 2.5
   _repathInterval: 0.5
   _searchRotationSpeed: 5
   _hitDistance: 0.3
